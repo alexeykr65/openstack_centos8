@@ -1,0 +1,14 @@
+openstack network create \
+{% if 'provider_network_type' in item %}
+--provider-network-type {{ item.provider_network_type }}  \
+{% endif %}
+{% if 'provider_physical_network' in item %}
+--provider-physical-network {{ item.provider_physical_network }} \
+{% endif %}
+{% if 'share' in item %}
+--share \
+{% endif %}
+{% if 'external' in item %}
+--external  \
+{% endif %}
+{{ item.name }} 

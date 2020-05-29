@@ -1,0 +1,86 @@
+---
+os_release: centos-release-openstack-train
+controller: { ipv4: 10.1.1.100, name: osc.lanhome.org }
+
+hosts_list:
+      - { ipv4: 10.1.1.100, name: 'osc osc.lanhome.org' }
+      - { ipv4: 10.1.1.101, name: 'osn1 osn1.lanhome.org' }
+br_ovs:
+  osc: 
+    - {name: br-ex}
+  osn1:
+    - {name: br-ex}
+
+
+ifcfgs:
+  osc:
+    - {name: eth1, type: OVSPort, bootproto: none, device_type: ovs, ovs_bridge: br-ex }
+    - {name: br-ex, type: OVSBridge, ipv4: 10.2.2.100/24, ovs_extra: "set bridge br-ex fail_mode=standalone", device_type: ovs, ovsbootproto: static }
+    - {name: eth0, type: Ethernet, ipv4: 10.1.1.100/24, gw: 10.1.1.1, defroute: yes}
+    # - {name: eth2, bootproto: none }
+
+    # - {name: eth2.1100, bootproto: none, ipv4: 10.123.1.20/24, vlan: yes }
+  osn1:
+    - {name: eth1, type: OVSPort, bootproto: none, device_type: ovs, ovs_bridge: br-ex }
+    - {name: br-ex, type: OVSBridge, ipv4: 10.2.2.101/24, ovs_extra: "set bridge br-ex fail_mode=standalone", device_type: ovs, ovsbootproto: static }
+    - {name: eth0, type: Ethernet, ipv4: 10.1.1.101/24, gw: 10.1.1.1, defroute: yes}  
+    # - {name: eth2, bootproto: none }
+    # - {name: eth2.1100, bootproto: none, ipv4: 10.123.1.26/24, vlan: yes }
+
+
+# hosts_openstack:
+#   controllers:
+#       - { ipv4: 192.168.180.25, name: controller }
+#   computes:
+#       - { ipv4: 192.168.180.20, name: compute1 }
+
+db_root_pass: cisco
+openstack_project: RegionOne
+ADMIN_PASS: giusto
+KEYSTONE_DBPASS: openstack
+GLANCE_DBPASS: openstack
+GLANCE_PASS: openstack
+PLACEMENT_PASS: openstack
+NOVA_DBPASS: openstack
+NOVA_PASS: openstack
+RABBIT_PASS: openstack
+# проверить сам сервис
+METADATA_SECRET: openstack
+NEUTRON_DBPASS: openstack
+NEUTRON_PASS: openstack
+CINDER_DBPASS: openstack
+CINDER_PASS: openstack
+HEAT_DBPASS: openstack
+HEAT_PASS: openstack
+
+
+DOMAIN_CREATE: example
+DOMAIN_USER: myuser
+DASH_DBPASS: openstack
+DEMO_PASS: openstack
+
+
+neutron_compute_packages:
+  - ebtables  
+  - openvswitch
+  - openstack-neutron-openvswitch
+  - python-openvswitch
+  - mc
+  - ipset
+#   - openstack-neutron-linuxbridge   
+
+
+neutron_node_packages:
+  - openstack-neutron 
+  - openstack-neutron-ml2
+  - ebtables  
+  - openvswitch
+  - openstack-neutron-openvswitch
+  - python-openvswitch
+
+
+
+
+
+
+

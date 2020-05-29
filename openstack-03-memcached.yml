@@ -1,0 +1,28 @@
+---
+- name: MEMCACHED>> Configure Memcached on Centos 8
+  hosts: controllers
+  gather_facts: false
+  
+  tasks:
+
+    - name: MEMCACHED>> Add packages
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - memcached 
+          - python3-memcached
+
+    - name: MEMCACHED>> Change Listen parameter /etc/sysconfig/memcached
+      lineinfile:
+        path: /etc/sysconfig/memcached
+        state: present
+        regexp: 'OPTIONS='
+        line: 'OPTIONS="-l 127.0.0.1,::1,{{ inventory_hostname }}"'
+
+    - name: MEMCACHED>> Enable services Memcached and start
+      systemd:
+        name: memcached
+        enabled: yes
+        state: started

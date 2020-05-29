@@ -1,0 +1,31 @@
+[DEFAULT]
+
+transport_url = rabbit://openstack:{{RABBIT_PASS}}@{{ controller.name }}
+heat_metadata_server_url = http://{{ controller.name }}:8000
+heat_waitcondition_server_url = http://{{ controller.name }}:8000/v1/waitcondition
+
+stack_domain_admin = heat_domain_admin
+stack_domain_admin_password = {{HEAT_PASS}}
+stack_user_domain_name = heat
+max_nova_api_microversion = 2.56
+
+
+[database]
+connection = mysql+pymysql://heat:{{HEAT_DBPASS}}@{{ controller.name }}/heat
+
+[keystone_authtoken]
+{% include 'keystone_authtoken.j2' %}
+username = heat
+password = {{HEAT_PASS}}
+
+[trustee]
+auth_type = password
+auth_url = http://{{ controller.name }}:5000
+username = heat
+password = {{HEAT_PASS}}
+user_domain_name = default
+
+[clients_keystone]
+auth_uri = http://{{ controller.name }}:5000
+
+

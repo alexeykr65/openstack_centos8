@@ -1,0 +1,269 @@
+---
+- name: NEUTRON>> Configure Neutron on Centos 8
+  hosts: all
+  gather_facts: false
+  
+  tasks:
+### Initialize database and over first step
+    - name: NEUTRON>> Configure controllers
+      block:
+        - name: NEUTRON>> Create a new database neutron
+          mysql_db:
+            name: "{{ item }}"
+            state: present
+            login_unix_socket: /var/lib/mysql/mysql.sock
+          with_items:
+            - neutron
+
+        - name: NEUTRON>> Grant database user neutron with database neutron
+          mysql_user:
+            name: neutron
+            password: "{{NEUTRON_DBPASS}}"
+            priv: 'neutron.*:ALL,GRANT'
+            state: present
+            host: "{{ item }}"
+            login_unix_socket: /var/lib/mysql/mysql.sock
+          with_items:
+            - 'localhost'
+            - '%'
+
+        - name: NEUTRON>> Openstack create User  'neutron'
+          shell: |
+            source /root/admin-openrc 
+            openstack user create --domain default --password {{NEUTRON_PASS}} neutron  
+          register: res_shell
+
+        - name: NEUTRON>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NEUTRON>> Openstack add user 'neutron' to role admin
+          shell: |
+            source /root/admin-openrc 
+            openstack role add --project service --user neutron admin
+          register: res_shell
+
+        - name: NEUTRON>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NEUTRON>> Openstack create service name 'neutron'
+          shell: |
+            source /root/admin-openrc 
+            openstack service create --name neutron --description "OpenStack Networking" network
+          register: res_shell
+
+        - name: NEUTRON>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NEUTRON>> Openstack create API endpoint public http://controller:9696
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region {{ openstack_project }} network public http://{{ controller.name }}:9696
+          register: res_shell
+
+        - name: NEUTRON>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NEUTRON>> Openstack create API endpoint internal http://controller:9696
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region {{ openstack_project }} network internal http://{{ controller.name }}:9696
+          register: res_shell
+
+        - name: NEUTRON>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NEUTRON>> Openstack create API endpoint admin http://controller:9696
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region {{ openstack_project }} network admin http://{{ controller.name }}:9696
+          register: res_shell
+
+        - name: NEUTRON>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+      
+      when: ('controller' in openstack_roles)
+
+    - name: NEUTRON>> Add packages Network Node for Neutron
+      dnf:
+        name: "{{ neutron_node_packages }}"
+        state: present
+      when: ('netnode' in openstack_roles)
+
+    - name: NEUTRON>> Add packages ComputeNode for Neutron
+      dnf:
+        name: "{{ neutron_compute_packages }}"
+        enablerepo: PowerTools
+        state: present
+      when: ('compute' in openstack_roles)
+
+
+    - name: NEUTRON>> Copy configs file for ComputeNode
+      block:
+      - name: NEUTRON>> Create file /etc/neutron/neutron.conf 
+        copy:
+          src: "./configs/{{inventory_hostname}}_neutron.conf"
+          dest: /etc/neutron/neutron.conf
+          owner: root
+          group: neutron
+          mode: '0640'
+          backup: yes
+        tags:
+          - packages_verify
+
+      - name: NEUTRON>> Create file /etc/neutron/plugins/ml2/openvswitch_agent.ini 
+        copy:
+          src: "./configs/{{inventory_hostname}}_neutron_openvswitch_agent.ini"
+          dest: /etc/neutron/plugins/ml2/openvswitch_agent.ini 
+          owner: root
+          group: neutron
+          mode: '0640'
+          backup: yes
+      when: ('compute' in openstack_roles)
+
+    - name: NEUTRON>> Copy configs file for ComputeNode
+      block:
+
+      - name: NEUTRON>> Create file /etc/neutron/plugins/ml2/ml2_conf.ini 
+        copy:
+          src: "./configs/{{inventory_hostname}}_neutron_ml2_conf.ini"
+          dest: /etc/neutron/plugins/ml2/ml2_conf.ini
+          owner: root
+          group: neutron
+          mode: '0640'
+          backup: yes
+
+      - name: NEUTRON>> Create file /etc/neutron/plugins/ml2/linuxbridge_agent.ini
+        copy:
+          src: "./configs/{{inventory_hostname}}_neutron_linuxbridge_agent.ini"
+          dest: /etc/neutron/plugins/ml2/linuxbridge_agent.ini
+          owner: root
+          group: neutron
+          mode: '0640'
+          backup: yes
+
+      - name: NEUTRON>> Create file /etc/neutron/l3_agent.ini
+        copy:
+          src: "./configs/{{inventory_hostname}}_neutron_l3_agent.ini"
+          dest: /etc/neutron/l3_agent.ini
+          owner: root
+          group: neutron
+          mode: '0640'
+          backup: yes
+
+      - name: NEUTRON>> Create file /etc/neutron/dhcp_agent.ini 
+        copy:
+          src: "./configs/{{inventory_hostname}}_neutron_dhcp_agent.ini"
+          dest: /etc/neutron/dhcp_agent.ini 
+          owner: root
+          group: neutron
+          mode: '0640'
+          backup: yes
+
+      - name: NEUTRON>> Create file /etc/neutron/metadata_agent.ini 
+        copy:
+          src: "./configs/{{inventory_hostname}}_neutron_metadata_agent.ini"
+          dest: /etc/neutron/metadata_agent.ini
+          owner: root
+          group: neutron
+          mode: '0640'
+          backup: yes
+
+      - name: NEUTRON>> Create a symbolic link ml2_conf.ini
+        file:
+          src: /etc/neutron/plugins/ml2/ml2_conf.ini
+          dest: /etc/neutron/plugin.ini
+          state: link
+      
+      when: ('netnode' in openstack_roles)
+
+    - name: NEUTRON>> Neutron neutron-db-manage
+      command: 'su -s /bin/sh -c "neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini upgrade head" neutron '
+      register: ret_val
+      when: ('netnode' in openstack_roles)
+
+    - name: NEUTRON>> Make sure the openstack-nova-api restart
+      systemd:
+        state: restarted
+        name: openstack-nova-api.service
+      when: ('netnode' in openstack_roles)
+
+    - name: NEUTRON>> Make sure a Compute Neutron services is running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - openvswitch
+        - neutron-openvswitch-agent.service 
+        - ovs-vswitchd.service
+        - ovsdb-server.service
+#        - neutron-linuxbridge-agent.service         
+      when: ('compute' in openstack_roles)
+
+    - name: NEUTRON>> Make sure a Network Node  services is running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - neutron-server.service 
+        - neutron-dhcp-agent.service 
+        - neutron-metadata-agent.service
+        - neutron-l3-agent.service
+      when: ('netnode' in openstack_roles)
+
+    - name: NEUTRON>> Create bridge for OVS bridges
+      command: /usr/bin/ovs-vsctl add-br {{ item.name }}
+      register: ret_val
+      loop: "{{ br_ovs[inventory_hostname] }}"
+      when: inventory_hostname in br_ovs
+
+    - name: NEUTRON>> Create file /etc/sysconfig/network-scripts 
+      template:
+        src: "ifcfg_interface.j2"
+        dest: "/etc/sysconfig/network-scripts/ifcfg-{{ item.name }}"
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ ifcfgs[inventory_hostname] }}"
+      tags:
+        - ifcfg
+
+
+    - name: NEUTRON>> Verify Neutron
+      shell: |
+        source /root/admin-openrc 
+        openstack extension list --network --fit-width
+      register: res_shell
+    
+    - name: NEUTRON>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: NEUTRON>> Verify Neutron
+      shell: |
+        source /root/admin-openrc 
+        openstack network agent list
+      register: res_shell
+    
+    - name: NEUTRON>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+
+    - name: NEUTRON>> Verify Neutron
+      shell: |
+        source /root/admin-openrc 
+        openstack catalog list
+      register: res_shell
+    
+    - name: NEUTRON>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+

@@ -1,0 +1,38 @@
+---
+- name: HORIZON>> Configure HORIZON on Centos 8
+  hosts: controllers
+  gather_facts: false
+  
+  tasks:
+    - name: HORIZON>> Add packages for Horizon
+      dnf:
+        name: "{{ packages }}"
+        enablerepo: PowerTools
+        state: present
+      vars:
+        packages:
+          - openstack-dashboard
+
+    - name: HORIZON>> Change file /etc/openstack-dashboard/local_settings
+      lineinfile:
+        path: /etc/openstack-dashboard/local_settings
+        regexp: '{{item.From}}'
+        line: '{{item.To}}'
+        state: present  
+      with_items:
+       - { From: '^OPENSTACK_HOST', To: 'OPENSTACK_HOST = "{{controller.name}}"'}
+       - { From: '^ALLOWED_HOSTS', To: 'ALLOWED_HOSTS = ["*"]'}
+      tags:
+        - exp
+
+    - name: HORIZON>> Change file /etc/openstack-dashboard/local_settings
+      lineinfile:
+        path: /etc/openstack-dashboard/local_settings
+        insertafter: 
+        line: "{{ item }}"
+        backup: yes
+        state: present  
+      with_items:
+       - "SESSION_TIMEOUT = 86400"
+       - "WEBROOT = '/dashboard'"
+

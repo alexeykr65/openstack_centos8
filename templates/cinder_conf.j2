@@ -1,0 +1,37 @@
+[DEFAULT]
+glance_api_servers = http://{{ controller.name }}:9292
+transport_url = rabbit://openstack:{{RABBIT_PASS}}@{{ controller.name }}
+auth_strategy = keystone
+my_ip = {{ cinder_conf.my_ip }}
+auth_strategy = keystone
+storage_availability_zone=nova
+default_availability_zone=nova
+enabled_backends=lvm
+default_volume_type = lvm
+image_volume_cache_enabled = True
+
+[database]
+connection = mysql+pymysql://cinder:{{CINDER_PASS}}@{{ controller.name }}/cinder
+
+[keystone_authtoken]
+{% include 'keystone_authtoken.j2' %}
+username = cinder
+password = {{CINDER_PASS}}
+
+[oslo_concurrency]
+lock_path = /var/lib/cinder/tmp
+
+[lvm]
+volume_driver = cinder.volume.drivers.lvm.LVMVolumeDriver
+volume_group = cinder-volumes
+volume_backend_name = LVM
+target_protocol = iscsi
+target_helper = lioadm
+
+
+[nfs]
+volume_driver = cinder.volume.drivers.nfs.NfsDriver
+volume_backend_name = NFS
+nfs_shares_config = /etc/cinder/nfs_shares
+nfs_mount_point_base = $state_path/mnt_nfs 
+

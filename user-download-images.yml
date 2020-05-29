@@ -1,0 +1,220 @@
+---
+- name: Downloads images for Openstack 
+  hosts: controllers
+  gather_facts: false
+  user: root
+
+  tasks:
+    - name: Download Centos 7
+      get_url:
+        url: https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2
+        dest: /root/CentOS-7-x86_64-GenericCloud.qcow2
+        mode: '0644'
+      tags:
+        - centos7
+
+    - name: Add image Centos 7 to Openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack image create \
+          --container-format bare \
+          --disk-format qcow2 \
+          --file CentOS-7-x86_64-GenericCloud.qcow2 \
+          CentOS-7-x86_64
+      register: res_shell
+      tags:
+        - centos7
+    
+    - name: Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      tags:
+        - centos7
+
+
+    - name: Download Centos 8 
+      get_url:
+        url: https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-GenericCloud-8.1.1911-20200113.3.x86_64.qcow2
+        dest: /root/CentOS-8-x86_64-GenericCloud.qcow2
+        mode: '0644'
+      tags:
+        - centos8
+
+    - name: Add image Centos 8 to Openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack image create \
+          --container-format bare \
+          --disk-format qcow2 \
+          --file CentOS-8-x86_64-GenericCloud.qcow2 \
+          CentOS-8-x86_64
+      register: res_shell
+      tags:
+        - centos8
+    
+    - name: Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      tags:
+        - centos8
+
+
+    - name: Download Ubuntu 16.04
+      get_url:
+        url: http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
+        dest: /root/xenial-server-cloudimg-amd64.img
+        mode: '0644'
+      tags:
+        - ubuntu1604
+
+    - name: Add image Ubuntu 16.04 to Openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack image create \
+          --container-format bare \
+          --disk-format qcow2 \
+          --file xenial-server-cloudimg-amd64.img \
+          Ubuntu-16.04-x86_64
+      register: res_shell
+      tags:
+        - ubuntu1604
+
+
+    - name: Download Ubuntu 18.04
+      get_url:
+        url: http://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img
+        dest: /root/bionic-server-cloudimg-amd64.img
+        mode: '0644'
+      tags:
+        - ubuntu1804
+
+    - name: Add image Ubuntu 18.04 to Openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack image create \
+          --container-format bare \
+          --disk-format qcow2 \
+          --file bionic-server-cloudimg-amd64.img \
+          Ubuntu-18.04-x86_64
+      register: res_shell
+      tags:
+        - ubuntu1804
+    
+    - name: Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      tags:
+        - ubuntu1804
+
+    - name: Download Ubuntu 18.04 minimal
+      get_url:
+        url: https://cloud-images.ubuntu.com/minimal/releases/bionic/release/ubuntu-18.04-minimal-cloudimg-amd64.img
+        dest: /root/bionic-server-cloudimg-amd64-minimal.img
+        mode: '0644'
+      tags:
+        - ubuntu1804mini
+
+    - name: Add image Ubuntu 18.04 minimal to Openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack image create \
+          --container-format bare \
+          --disk-format qcow2 \
+          --file bionic-server-cloudimg-amd64-minimal.img \
+          Ubuntu-18.04-x86_64-minimal
+      register: res_shell
+      tags:
+        - ubuntu1804mini
+    
+    - name: Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      tags:
+        - ubuntu1804mini
+
+
+
+    - name: Download Ubuntu 20.04
+      get_url:
+        url: https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64-disk-kvm.img 
+          #https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
+        # https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64-disk-kvm.img
+        dest: /root/focal-server-cloudimg-amd64.img
+        mode: '0644'
+      tags:
+        - ubuntu2004
+
+    - name: Add image Ubuntu 20.04 to Openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack image create \
+          --container-format bare \
+          --disk-format qcow2 \
+          --file focal-server-cloudimg-amd64.img \
+          Ubuntu-20.04-x86_64-kvm
+      register: res_shell
+      tags:
+        - ubuntu2004
+    
+    - name: Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      tags:
+        - ubuntu2004
+
+
+
+
+    # - name: Download Debian 10
+    #   get_url:
+    #     url: http://cdimage.debian.org/cdimage/openstack/current/debian-10.4.1-20200515-openstack-amd64.qcow2
+    #     dest: /root/debian-10.4.1-20200515-openstack-amd64.qcow2
+    #     mode: '0644'
+    #   tags:
+    #     - debian10
+
+    - name: Add image Debian 10 to Openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack image create \
+          --container-format bare \
+          --disk-format qcow2 \
+          --file debian-10.4.1-20200515-openstack-amd64.qcow2 \
+          Debian-10.3.2-x86_64
+      register: res_shell
+      tags:
+        - debian10
+    
+    - name: Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      tags:
+        - debian10
+
+
+
+
+
+
+
+
+    - name: Verify image list
+      shell: |
+        source /root/admin-openrc 
+        openstack image list
+      register: res_shell
+      tags:
+        - centos7
+        - centos8
+        - ubuntu1804
+        - debian10
+    
+    - name: Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      tags:
+        - centos7
+        - centos8
+        - ubuntu1804
+        - debian10
+

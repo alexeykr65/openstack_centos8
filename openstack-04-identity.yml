@@ -1,0 +1,214 @@
+---
+- name: Configure Identity on Centos 8
+  hosts: controllers
+  gather_facts: false
+  
+  tasks:
+    - name: show andi
+      debug:
+        msg: "{{ ansible_host }}"
+
+    - name: IDENTITY>> Create a new database
+      mysql_db:
+        name: keystone
+        state: present
+        #login_host: "{{ ansible_host }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        #login_password: "{{ db_root_pass }}"
+        # login_user: 'root'
+          #"{{ ansible_host }}"
+
+    - name: IDENTITY>> Create database user with all database privileges
+      mysql_user:
+        name: keystone
+        password: "{{ KEYSTONE_DBPASS }}"
+        priv: 'keystone.*:ALL,GRANT'
+        state: present
+        host: "{{ item }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        # login_host: "{{ ansible_host }}"        
+      with_items:
+        - 'localhost'
+        - '%'
+
+
+    - name: IDENTITY>> Add packages for Identity
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - openstack-keystone 
+          - httpd
+          - mod_wsgi
+
+    - name: IDENTITY>> Create file /etc/keystone/keystone.conf
+      template:
+        src: "keystone_conf.j2"
+        dest: /etc/keystone/keystone.conf
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+
+    - name: IDENTITY>> keystone manage db_sync
+      command: 'su -s /bin/sh -c "keystone-manage db_sync" keystone'
+      register: ret_val
+
+    - name: keystone fernet_setup 
+      command: /usr/bin/keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+
+    - name: IDENTITY>> keystone credential_setup
+      command: /usr/bin/keystone-manage credential_setup --keystone-user keystone --keystone-group keystone
+
+    - name: IDENTITY>> bootstrap
+      command: |
+          /usr/bin/keystone-manage bootstrap --bootstrap-password {{ ADMIN_PASS }} \
+            --bootstrap-admin-url http://{{controller.name}}:5000/v3/ \
+            --bootstrap-internal-url http://{{controller.name}}:5000/v3/ \
+            --bootstrap-public-url http://{{controller.name}}:5000/v3/ \
+            --bootstrap-region-id {{openstack_project}}
+      register: ret_val
+
+    - name: IDENTITY>> Change file /etc/httpd/conf/httpd.conf
+      lineinfile:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '#ServerName www.example.com'
+        line: "ServerName {{controller.name}}"
+        state: present  
+
+    - name: IDENTITY>> Create a symbolic link wsgi-keystone.conf in /etc/httpd/conf.d/
+      file:
+        src: /usr/share/keystone/wsgi-keystone.conf
+        dest: /etc/httpd/conf.d/wsgi-keystone.conf
+        state: link
+
+    - name: IDENTITY>> Make sure the httpd is running
+      systemd:
+        state: started
+        enabled: yes
+        name: httpd
+
+    - name: IDENTITY>> Create remote file admin-openrc
+      template:
+        src: "admin_openrc.j2"
+        dest: /root/admin-openrc
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: IDENTITY>> Create remote file admin-openrc
+      template:
+        src: "admin_openrc.j2"
+        dest: admin-openrc
+        trim_blocks: True
+        lstrip_blocks: True
+      delegate_to: localhost
+      tags:
+        - admin_local
+
+    - name: IDENTITY>> Openstack create Domain 'example'
+      shell: |
+        source /root/admin-openrc 
+        openstack domain create --description 'An Example Domain' {{DOMAIN_CREATE}}
+      register: res_shell
+
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+
+    - name: IDENTITY>> Openstack create project 'service'
+      shell: |
+        source /root/admin-openrc 
+        openstack project create --domain default --description "Service Project" service
+      register: res_shell
+
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: IDENTITY>> Openstack create project 'myproject'
+      shell: |
+        source /root/admin-openrc 
+        openstack project create --domain default  --description "Demo Project" myproject
+      register: res_shell
+
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: IDENTITY>> Openstack create user 'myuser'
+      shell: |
+        source /root/admin-openrc 
+        openstack user create --domain default --password openstack  myuser
+      register: res_shell
+
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: IDENTITY>> Openstack create role 'myrole'
+      shell: |
+        source /root/admin-openrc 
+        openstack role create myrole
+      register: res_shell
+
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: IDENTITY>> Openstack add user 'myuser' to role 'myrole'
+      shell: |
+        source /root/admin-openrc 
+        openstack role add --project myproject --user myuser myrole
+      register: res_shell
+
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+
+    - name: IDENTITY>> Verify identity to get token issue for 'admin'
+      shell: |
+        source /root/admin-openrc 
+        openstack --os-auth-url http://{{controller.name}}:5000/v3 \
+          --os-project-domain-name Default --os-user-domain-name Default \
+          --os-project-name admin --os-username admin token issue
+      register: res_shell
+
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    # - name: IDENTITY>> Verify identity to get token issue for 'myuser'
+    #   shell: |
+    #     source /root/admin-openrc 
+    #     openstack --os-auth-url http://{{controller.name}}:5000/v3 \
+    #       --os-project-domain-name Default --os-user-domain-name Default \
+    #       --os-project-name myproject --os-username myuser token issue
+    #   register: res_shell
+    
+    # - name: IDENTITY>> Show result
+    #   debug:
+    #     msg: "{{ res_shell.stdout }}"
+
+    - name: IDENTITY>> Verify identity to get token issue 
+      shell: |
+        source /root/admin-openrc 
+        openstack token issue
+      register: res_shell
+    
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: IDENTITY>> Show catalog openstack
+      shell: |
+        source /root/admin-openrc 
+        openstack catalog list
+      register: res_shell
+    
+    - name: IDENTITY>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"

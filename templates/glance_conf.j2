@@ -1,0 +1,44 @@
+[DEFAULT]
+bind_host=0.0.0.0
+bind_port=9292
+debug=False
+
+# workers=10
+# image_cache_dir=/var/lib/glance/image-cache
+# registry_host=0.0.0.0
+# log_file=/var/log/glance/api.log
+# log_dir=/var/log/glance
+# transport_url=rabbit://guest:guest@{{ controller.name }}:5672/
+# enable_v1_api=False
+
+[database]
+connection = mysql+pymysql://glance:{{GLANCE_DBPASS}}@{{ controller.name }}/glance
+
+[glance_store]
+stores = file,http
+default_store = file
+filesystem_store_datadir = /var/lib/glance/images/
+
+# stores=file,http,swift
+# os_region_name=RegionOne
+
+[keystone_authtoken]
+{% include 'keystone_authtoken.j2' %}
+username = glance
+password = {{GLANCE_PASS}}
+
+[paste_deploy]
+flavor=keystone
+
+# [oslo_messaging_notifications]
+# driver=messagingv2
+# topics=notifications
+
+# [oslo_messaging_rabbit]
+# ssl=False
+# default_notification_exchange=glance
+
+# [oslo_policy]
+# policy_file=/etc/glance/policy.json
+
+

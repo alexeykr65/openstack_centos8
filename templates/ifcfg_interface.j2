@@ -1,0 +1,41 @@
+{% if 'type' in item %}
+TYPE={{ item.type }}
+{% endif %}
+PROXY_METHOD=none
+BROWSER_ONLY=no
+{% if 'bootproto' in item %}
+BOOTPROTO={{ item.bootproto }}
+{% endif %}
+{% if 'defroute' in item %}
+DEFROUTE=yes
+{% endif %}
+{% if 'ipv4' in item %}
+IPV4_FAILURE_FATAL=no
+IPADDR={{ item.ipv4 | ipaddr('address') }}
+NETMASK={{ item.ipv4 | ipaddr('netmask') }}
+{% endif %}
+{% if 'gw' in item %}
+GATEWAY={{ item.gw }}
+{% endif %}
+{% if 'dns1' in item %}
+DNS1={{ item.dns1 }}
+{% endif %}
+{% if 'vlan' in item %}
+VLAN=yes
+{% endif %}
+IPV6INIT=no
+ONBOOT=yes
+DEVICE={{ item.name }}
+NAME={{ item.name }}
+{% if 'ovs_bridge' in item %}
+OVS_BRIDGE={{ item.ovs_bridge }}
+{% endif %}
+{% if 'device_type' in item %}
+DEVICETYPE={{ item.device_type }}
+{% endif %}
+{% if 'ovsbootproto' in item %}
+OVSBOOTPROTO={{ item.ovsbootproto }}
+{% endif %}
+{% if 'ovs_extra' in item %}
+OVS_EXTRA={{ item.ovs_extra }}
+{% endif %}

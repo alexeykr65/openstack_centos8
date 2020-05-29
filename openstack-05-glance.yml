@@ -1,0 +1,154 @@
+---
+- name: GLANCE>> Configure Glance on Centos 8
+  hosts: controllers
+  gather_facts: false
+  
+  tasks:
+
+    - name: GLANCE>> Create a new database
+      mysql_db:
+        name: glance
+        state: present
+        login_unix_socket: /var/lib/mysql/mysql.sock
+
+    - name: GLANCE>> Create database user with all database privileges
+      mysql_user:
+        name: glance
+        password: "{{ GLANCE_DBPASS }}"
+        priv: 'glance.*:ALL,GRANT'
+        state: present
+        host: "{{ item }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+      with_items:
+        - 'localhost'
+        - '%'
+
+    - name: GLANCE>> Openstack create User  'glance'
+      shell: |
+        source /root/admin-openrc 
+        openstack user create --domain default --password {{ GLANCE_PASS }} glance
+      register: res_shell
+
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: GLANCE>> Openstack add user 'glance' to role admin
+      shell: |
+        source /root/admin-openrc 
+        openstack role add --project service --user glance admin
+      register: res_shell
+
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: GLANCE>> Openstack create service name 'glance' image
+      shell: |
+        source /root/admin-openrc 
+        openstack service create --name glance --description "OpenStack Image" image
+      register: res_shell
+
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: GLANCE>> Openstack create API endpoint public http://controller:9292
+      shell: |
+        source /root/admin-openrc 
+        openstack endpoint create --region {{ openstack_project }} image public http://{{controller.name}}:9292
+      register: res_shell
+
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: GLANCE>> Openstack create API endpoint internal http://controller:9292
+      shell: |
+        source /root/admin-openrc 
+        openstack endpoint create --region {{ openstack_project }} image internal http://{{controller.name}}:9292
+      register: res_shell
+
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: GLANCE>> Openstack create API endpoint admin http://controller:9292
+      shell: |
+        source /root/admin-openrc 
+        openstack endpoint create --region {{ openstack_project }} image admin http://{{controller.name}}:9292
+      register: res_shell
+
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: GLANCE>> Add packages for glance
+      dnf:
+        name: "{{ packages }}"
+        enablerepo: PowerTools
+        state: present
+      vars:
+        packages:
+          - openstack-glance 
+
+    - name: GLANCE>> Copy file /etc/glance/glance-api.conf 
+      template:
+        src: "./configs/{{inventory_hostname}}_glance-api.conf"
+        dest: /etc/glance/glance-api.conf 
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+
+    - name: GLANCE>> glance manage db_sync
+      command: 'su -s /bin/sh -c "glance-manage db_sync" glance'
+      register: ret_val
+
+    - name: GLANCE>> Make sure the openstack-glance-api is running
+      systemd:
+        state: started
+        enabled: yes
+        name: openstack-glance-api
+
+    - name: GLANCE>> Download cirros 0.4.0
+      get_url:
+        url: http://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img
+        dest: /root/cirros-0.4.0-x86_64-disk.img
+        mode: '0644'
+
+    - name: GLANCE>> Verify to create image cirros 0.4.0
+      shell: |
+        source /root/admin-openrc 
+        glance image-create --name "cirros" \
+          --file /root/cirros-0.4.0-x86_64-disk.img \
+          --disk-format qcow2 --container-format bare \
+          --visibility public
+      register: res_shell
+    
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: GLANCE>> Verify image list
+      shell: |
+        source /root/admin-openrc 
+        openstack image list
+      register: res_shell
+    
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+
+    - name: GLANCE>> Show openstack catalog current
+      shell: |
+        source /root/admin-openrc 
+        openstack catalog list
+      register: res_shell
+    
+    - name: GLANCE>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+

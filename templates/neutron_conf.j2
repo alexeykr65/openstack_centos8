@@ -1,0 +1,38 @@
+[DEFAULT]
+{% if 'core_plugin' in neutron_conf %}
+core_plugin = {{neutron_conf.core_plugin}}
+{% endif %}
+{% if 'service_plugins' in neutron_conf %}
+service_plugins = {{neutron_conf.service_plugins}}
+{% endif %}
+{% if 'allow_overlapping_ips' in neutron_conf %}
+allow_overlapping_ips = true
+{% endif %}
+transport_url = rabbit://openstack:{{RABBIT_PASS}}@{{ controller.name }}
+auth_strategy = keystone
+notify_nova_on_port_status_changes = true
+notify_nova_on_port_data_changes = true
+allow_overlapping_ips = true
+#global_physnet_mtu = 9000
+
+
+[database]
+connection = mysql+pymysql://neutron:{{NEUTRON_PASS}}@{{ controller.name }}/neutron
+
+[keystone_authtoken]
+{% include 'keystone_authtoken.j2' %}
+username = neutron
+password = {{NEUTRON_PASS}}
+
+[nova]
+auth_url = http://{{ controller.name }}:5000
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = nova
+password = {{NOVA_PASS}}
+
+[oslo_concurrency]
+lock_path = /var/lib/neutron/tmp

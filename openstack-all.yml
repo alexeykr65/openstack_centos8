@@ -1,0 +1,54 @@
+---
+# Change file all.yml
+# Change file hosts.yml
+- name: Configure Openstack all on Centos 8
+  hosts: all
+  gather_facts: false
+
+- name: Configure  001 Centos
+  import_playbook: openstack-common-generate-configs.yml
+
+- name: Configure  00 Centos
+  import_playbook: openstack-00-prerequisite.yml
+
+- name: Configure 01 Centos
+  import_playbook: openstack-01-mariadb.yml
+  when: ('controller' in openstack_roles)
+
+- name: Configure 02 Centos RabbitMq
+  import_playbook: openstack-02-rabbitmq.yml
+  when: ('controller' in openstack_roles)
+
+- name: Configure 03 Centos Memcached
+  import_playbook: openstack-03-memcached.yml
+  when: ('controller' in openstack_roles)
+
+- name: Configure 04 Centos identity
+  import_playbook: openstack-04-identity.yml
+  when: ('controller' in openstack_roles)
+
+- name: Configure 05 Centos Glance
+  import_playbook: openstack-05-glance.yml
+  when: ('controller' in openstack_roles)
+
+- name: Configure 06 Centos Placement
+  import_playbook: openstack-06-placement.yml
+  when: ('controller' in openstack_roles)
+
+- name: Configure 07 Centos Nova
+  import_playbook: openstack-07-nova.yml
+
+- name: Configure 09 Centos Neutron
+  import_playbook: openstack-09-neutron.yml
+
+- name: Configure 10 Centos Horizon
+  import_playbook: openstack-10-horizon.yml
+  when: ('controller' in openstack_roles)
+
+# - name: Configure 11 Centos
+#   import_playbook: openstack-11-cinder.yml
+
+  # tasks:
+  #   - name: PRE >> Reboot machine
+  #     reboot:  
+

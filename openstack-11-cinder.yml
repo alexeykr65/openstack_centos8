@@ -1,0 +1,228 @@
+---
+- name: CINDER>> Configure Cinder on Centos 8
+  hosts: all
+  gather_facts: false
+  
+  tasks:
+
+    - name: CINDER>> Configure Controllers
+      block:
+        - name: CINDER>> Create a new database Cinder
+          mysql_db:
+            name: "{{ item }}"
+            state: present
+            login_host: "{{ ansible_host }}"
+          with_items:
+            - cinder
+
+        - name: CINDER>> Grant database user cinder with database neutron
+          mysql_user:
+            name: cinder
+            password: "{{CINDER_DBPASS}}"
+            priv: 'cinder.*:ALL,GRANT'
+            state: present
+            host: "{{ item }}"
+            login_host: "{{ controller.ipv4 }}"        
+          with_items:
+            - 'localhost'
+            - '%'
+
+        - name: CINDER>> Openstack create User  'cinder'
+          shell: |
+            source /root/admin-openrc 
+            openstack user create --domain default --password {{CINDER_PASS}} cinder
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack add user 'cinder' to role admin
+          shell: |
+            source /root/admin-openrc 
+            openstack role add --project service --user cinder admin
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create service name 'cinderv2'
+          shell: |
+            source /root/admin-openrc 
+            openstack service create --name cinderv2 --description "OpenStack Block Storage" volumev2
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create service name 'cinderv3'
+          shell: |
+            source /root/admin-openrc 
+            openstack service create --name cinderv3 --description "OpenStack Block Storage" volumev3
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create API endpoint public http://controller:8776/v2
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne volumev2 public 'http://{{ controller.name }}:8776/v2/%(project_id)s'
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create API endpoint internal http://controller:8776/v2
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne volumev2 internal 'http://{{ controller.name }}:8776/v2/%(project_id)s'
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create API endpoint admin http://controller:8776/v2
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne volumev2 admin 'http://{{ controller.name }}:8776/v2/%(project_id)s'
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create API endpoint public http://controller:8776/v3
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne volumev3 public 'http://{{ controller.name }}:8776/v3/%(project_id)s'
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create API endpoint internal http://controller:8776/v3
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne volumev3 internal 'http://{{ controller.name }}:8776/v3/%(project_id)s'
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: CINDER>> Openstack create API endpoint admin http://controller:8776/v3
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne volumev3 admin 'http://{{ controller.name }}:8776/v3/%(project_id)s'
+          register: res_shell
+
+        - name: CINDER>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+      when: ('controller' in openstack_roles)
+              
+    - name: CINDER>> Add packages for Cinder
+      yum:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - openstack-cinder
+      when: ('controller' in openstack_roles)
+
+    - name: CINDER>> Add packages for Cinder Storage
+      yum:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - lvm2
+          - device-mapper-persistent-data
+          - openstack-cinder 
+          - targetcli 
+          - python-keystone
+      when: ('storage' in openstack_roles)
+
+    - name: CINDER>> Pcreate /dev/sdb
+      command: pvcreate -y /dev/sdb
+      register: ret_val
+      when: ('storage' in openstack_roles)
+
+    - name: CINDER>> Vgcreate /dev/cdb
+      command: vgcreate cinder-volumes /dev/sdb
+      register: ret_val
+      when: ('storage' in openstack_roles)
+
+
+    - name: CINDER>> Create file /etc/cinder/cinder.conf
+      copy:
+        src: "./configs/{{inventory_hostname}}_cinder_cinder.conf"
+        dest: /etc/cinder/cinder.conf
+        owner: root
+        group: cinder
+        mode: '0640'
+        backup: yes
+      when: ('storage' in openstack_roles) or ('controller' in openstack_roles)        
+
+    - name: CINDER>> Cinder DB Sync 
+      command: 'su -s /bin/sh -c "cinder-manage db sync" cinder'
+      register: ret_val
+      when: ('controller' in openstack_roles)        
+
+    - name: CINDER>> Add to file /etc/lvm/lvm.conf filter 
+      lineinfile:
+        path: /etc/lvm/lvm.conf
+        firstmatch: yes
+        insertbefore: '# filter ='
+        line: '     filter = [ "a/sda/", "a/sdb/", "r/.*/"]'
+        backup: yes
+      when: ('storage' in openstack_roles)
+
+    - name: CINDER>> Make sure a Cinder services is running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - openstack-cinder-api.service 
+        - openstack-cinder-scheduler.service
+      when: ('controller' in openstack_roles)        
+
+    - name: CINDER>> Make sure a Storage services is running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - lvm2-lvmetad.service 
+        - openstack-cinder-volume.service 
+        - target.service
+      when: ('storage' in openstack_roles)
+
+    - name: CINDER>> Restart nova service
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      with_items:
+        - openstack-nova-api.service 
+      when: ('controller' in openstack_roles)        
+
+    - name: CINDER>> Verify Catalog
+      shell: |
+        source /root/admin-openrc 
+        openstack catalog list
+      register: res_shell
+    
+    - name: CINDER>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    # - name: END REBOOT >> Reboot machine
+    #   reboot:  

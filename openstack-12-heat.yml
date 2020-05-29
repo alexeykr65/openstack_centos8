@@ -1,0 +1,236 @@
+---
+- name: HEAT>> Configure Cinder on Centos 8
+  hosts: controllers
+  gather_facts: false
+  
+  tasks:
+
+    - name: HEAT>> Configure Controllers
+      block:
+        - name: HEAT>> Create a new database heat
+          mysql_db:
+            name: "{{ item }}"
+            state: present
+            login_host: "{{ ansible_host }}"
+          with_items:
+            - heat
+
+        - name: HEAT>> Grant database user heat with database heat
+          mysql_user:
+            name: heat
+            password: "{{HEAT_DBPASS}}"
+            priv: 'heat.*:ALL,GRANT'
+            state: present
+            host: "{{ item }}"
+            login_host: "{{ controller.ipv4 }}"        
+          with_items:
+            - 'localhost'
+            - '%'
+
+        - name: HEAT>> Openstack create User  'heat'
+          shell: |
+            source /root/admin-openrc 
+            openstack user create --domain default --password {{HEAT_PASS}} heat
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack add user 'heat' to role admin
+          shell: |
+            source /root/admin-openrc 
+            openstack role add --project service --user heat admin
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create service name 'heat'
+          shell: |
+            source /root/admin-openrc 
+            openstack service create --name heat --description "Orchestration" orchestration
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create service name 'heat'
+          shell: |
+            source /root/admin-openrc 
+            openstack service create --name heat-cfn --description "Orchestration" cloudformation
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+
+
+        - name: HEAT>> Openstack create API endpoint public http://controller:8004
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne orchestration public 'http://{{ controller.name }}:8004/v1/%(tenant_id)s'
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create API endpoint internal http://controller:8776/v2
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne orchestration internal 'http://{{ controller.name }}:8004/v1/%(tenant_id)s'
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create API endpoint admin http://controller:8776/v2
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne orchestration admin 'http://{{ controller.name }}:8004/v1/%(tenant_id)s'
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+
+
+        - name: HEAT>> Openstack create API endpoint public http://controller:8000/v1
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne cloudformation public 'http://{{ controller.name }}:8000/v1'
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+
+        - name: HEAT>> Openstack create API endpoint internal http://controller:8000/v1
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne cloudformation internal 'http://{{ controller.name }}:8000/v1'
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create API endpoint admin http://controller:8000/v1
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region RegionOne cloudformation admin 'http://{{ controller.name }}:8000/v1'
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create domain name 'heat'
+          shell: |
+            source /root/admin-openrc 
+            openstack domain create --description "Stack projects and users" heat
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create User  'heat_domain_admin'
+          shell: |
+            source /root/admin-openrc 
+            openstack user create --domain heat --password {{HEAT_PASS}} heat_domain_admin
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack add user 'heat_domain_admin' to role admin
+          shell: |
+            source /root/admin-openrc 
+            openstack role add --domain heat --user-domain heat --user heat_domain_admin admin
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack create role 'heat_stack_owner'
+          shell: |
+            source /root/admin-openrc 
+            openstack role create heat_stack_owner
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: HEAT>> Openstack add role to project 'myproject'
+          shell: |
+            source /root/admin-openrc 
+            openstack role add --project myproject --user myuser heat_stack_owner
+          register: res_shell
+
+        - name: HEAT>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+#      when: ('controller' in openstack_roles)
+              
+
+
+    - name: HEAT>> Add packages for Heat
+      yum:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - openstack-heat-api 
+          - openstack-heat-api-cfn 
+          - openstack-heat-engine
+
+
+    - name: HEAT>> Create file /etc/heat/heat.conf
+      copy:
+        src: "./configs/{{inventory_hostname}}_heat.conf"
+        dest: /etc/heat/heat.conf
+        owner: root
+        group: heat
+        mode: '0640'
+        backup: yes
+
+
+    - name: HEAT>> Heat DB Sync 
+      command: 'su -s /bin/sh -c "heat-manage db_sync" heat'
+      register: ret_val
+
+    - name: HEAT>> Make sure a Heat services is running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - openstack-heat-api.service 
+        - openstack-heat-api-cfn.service 
+        - openstack-heat-engine.service
+
+
+    - name: HEAT>> Verify service
+      shell: |
+        source /root/admin-openrc 
+        openstack orchestration service list
+      register: res_shell
+    
+    - name: HEAT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: END REBOOT >> Reboot machine
+      reboot:  

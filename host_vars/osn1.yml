@@ -1,0 +1,19 @@
+---
+openstack_roles:
+  - compute
+  - storage
+
+neutron_conf: {}
+
+ovs_conf:
+  bridge_mappings: physnet3:br-ex
+  local_ip: 10.1.1.101
+
+cinder_conf:
+  my_ip: 10.1.1.101
+
+
+nova_conf:
+  my_ip: 10.1.1.101
+
+

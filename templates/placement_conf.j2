@@ -1,0 +1,13 @@
+[DEFAULT]
+debug=False
+
+[api]
+auth_strategy = keystone
+
+[keystone_authtoken]
+{% include 'keystone_authtoken.j2' %}
+username = placement
+password = {{PLACEMENT_PASS}}
+
+[placement_database]
+connection = mysql+pymysql://placement:{{PLACEMENT_PASS}}@{{ controller.name }}/placement

@@ -1,0 +1,151 @@
+---
+- name: PLACEMENT>> Configure Placement on Centos 8
+  hosts: controllers
+  gather_facts: false
+  
+  tasks:
+    - name: PLACEMENT>> Create a new database
+      mysql_db:
+        name: placement
+        state: present
+        login_unix_socket: /var/lib/mysql/mysql.sock
+
+    - name: PLACEMENT>> Create database user with all database privileges
+      mysql_user:
+        name: placement
+        password: "{{PLACEMENT_PASS}}"
+        priv: 'placement.*:ALL,GRANT'
+        state: present
+        host: "{{ item }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+      with_items:
+        - 'localhost'
+        - '%'
+
+    - name: PLACEMENT>> Openstack create User  'placement'
+      shell: |
+        source /root/admin-openrc 
+        openstack user create --domain default --password {{PLACEMENT_PASS}} placement
+      register: res_shell
+
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Openstack add user 'placement' to role admin
+      shell: |
+        source /root/admin-openrc 
+        openstack role add --project service --user placement admin
+      register: res_shell
+
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Openstack create service name 'placement' image
+      shell: |
+        source /root/admin-openrc 
+        openstack service create --name placement --description "Placement API" placement
+      register: res_shell
+
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Openstack create API endpoint public http://controller:8778
+      shell: |
+        source /root/admin-openrc 
+        openstack endpoint create --region {{ openstack_project }} placement public http://{{controller.name}}:8778
+      register: res_shell
+
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Openstack create API endpoint internal http://controller:8778
+      shell: |
+        source /root/admin-openrc 
+        openstack endpoint create --region {{ openstack_project }} placement internal http://{{controller.name}}:8778
+      register: res_shell
+
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Openstack create API endpoint admin http://controller:8778
+      shell: |
+        source /root/admin-openrc 
+        openstack endpoint create --region {{ openstack_project }} placement admin http://{{controller.name}}:8778
+      register: res_shell
+
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Add packages for placement
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - openstack-placement-api
+
+    - name: PLACEMENT>> Create file /etc/placement/placement.conf 
+      template:
+        src: "placement_conf.j2"
+        dest: /etc/placement/placement.conf
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+
+    - name: PLACEMENT>> glance manage db_sync
+      command: 'su -s /bin/sh -c "placement-manage db sync" placement'
+      register: ret_val
+
+    - name: PLACEMENT>> Verify placement
+      shell: |
+        source /root/admin-openrc 
+        placement-status upgrade check
+      register: res_shell
+    
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Show openstack catalog current
+      shell: |
+        source /root/admin-openrc 
+        openstack catalog list
+      register: res_shell
+    
+    - name: PLACEMENT>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: PLACEMENT>> Change file /etc/httpd/conf.d/00-placement-api.conf
+      lineinfile:
+        path: /etc/httpd/conf.d/00-placement-api.conf
+        insertafter: "WSGIScriptAlias"
+        line: |
+              <Directory /usr/bin>
+              <IfVersion >= 2.4>
+                 Require all granted
+              </IfVersion>
+              <IfVersion < 2.4>
+                 Order allow,deny
+                 Allow from all
+              </IfVersion>
+              </Directory>
+        backup: yes
+        state: present  
+
+    - name: PLACEMENT>> Make sure the httpd restart
+      systemd:
+        state: restarted
+        name: httpd
+
+    - name: PLACEMENT>> Make sure the httpd restart
+      systemd:
+        state: restarted
+        name: httpd

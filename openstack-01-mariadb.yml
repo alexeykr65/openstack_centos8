@@ -1,0 +1,74 @@
+---
+- name: Configure MariaDB on Centos 8
+  hosts: controllers
+  gather_facts: false
+
+  tasks:
+
+    - name: MARIADB>> Add Maria DB
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - mariadb
+          - mariadb-server
+          - python2-PyMySQL
+          - python3-PyMySQL          
+
+    - name: MARIADB>> Create file /etc/my.cnf.d/openstack.cnf MariaDB
+      template:
+        src: "mariadb-openstack.j2"
+        dest: /etc/my.cnf.d/openstack.cnf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: MARIADB>> Enable services MariaDB and start
+      systemd:
+        name: mariadb
+        enabled: yes
+        state: started
+
+    - name: Check if root password is set
+      shell: >
+        mysqladmin -u root status
+      changed_when: false
+      failed_when: false
+      register: root_pwd_check
+
+    - name: Set MariaDB root password for the first time (root@localhost)
+      mysql_user:
+        name: root
+        password: "{{ db_root_pass }}"
+        host: localhost
+        login_unix_socket: "/var/lib/mysql/mysql.sock"
+        state: present
+      when: root_pwd_check.rc == 0
+
+    - name: MARIADB>> Set root Password
+      mysql_user: 
+        # login_password: "{{ db_root_pass }}"
+        # check_implicit_admin: yes 
+        append_privs: yes
+        name: root 
+        host: "{{ item }}"
+        password: "{{ db_root_pass }}" 
+        login_password: "{{ db_root_pass }}"
+        state: present 
+        login_unix_socket: /var/lib/mysql/mysql.sock
+#        login_host: "{{ ansible_host }}"
+      with_items:
+        - localhost
+        - 127.0.0.1
+        - "{{ ansible_host }}"        
+        - "{{ controller.name }}"
+        - '%'
+
+    - name: MARIADB>> Generate local file .mf.cnf
+      template:
+        src: "mysqldb_pass.j2"
+        dest: "/root/.my.cnf"
+
+    - name: PRE >> Reboot machine
+      reboot:  

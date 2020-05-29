@@ -1,0 +1,267 @@
+---
+- name: NOVA>> Configure Nova  on Centos 8
+  hosts: all
+  gather_facts: false
+  
+  tasks:
+    - name: NOVA>> Configure Nova on controller
+      block:
+        - name: NOVA>> Create a new database
+          mysql_db:
+            name: "{{ item }}"
+            state: present
+            login_unix_socket: /var/lib/mysql/mysql.sock
+          with_items:
+            - nova_api
+            - nova
+            - nova_cell0
+
+        - name: NOVA>> Grant database user nova with database nova
+          mysql_user:
+            name: nova
+            password: "{{NOVA_DBPASS}}"
+            priv: 'nova.*:ALL,GRANT'
+            # append_privs: yes
+            state: present
+            host: "{{ item }}"
+            login_unix_socket: /var/lib/mysql/mysql.sock
+          with_items:
+            - 'localhost'
+            - '%'
+
+        - name: NOVA>> Grant database user nova with database nova_api
+          mysql_user:
+            name: nova
+            password: "{{NOVA_DBPASS}}"
+            priv: 'nova_api.*:ALL,GRANT'
+            append_privs: yes
+            state: present
+            host: "{{ item }}"
+            login_unix_socket: /var/lib/mysql/mysql.sock
+          with_items:
+            - 'localhost'
+            - '%'
+
+        - name: NOVA>> Grant database user nova with database nova_cell0
+          mysql_user:
+            name: nova
+            password: "{{NOVA_DBPASS}}"
+            priv: 'nova_cell0.*:ALL,GRANT'
+            append_privs: yes
+            state: present
+            host: "{{ item }}"
+            login_unix_socket: /var/lib/mysql/mysql.sock
+          with_items:
+            - 'localhost'
+            - '%'
+
+        - name: NOVA>> Openstack create User  'nova'
+          shell: |
+            source /root/admin-openrc 
+            openstack user create --domain default --password {{NOVA_PASS}} nova
+          register: res_shell
+
+        - name: NOVA>> Show result
+          debug: 
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NOVA>> Openstack add user 'nova' to role admin
+          shell: |
+            source /root/admin-openrc 
+            openstack role add --project service --user nova admin
+          register: res_shell
+
+        - name: NOVA>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NOVA>> Openstack create service name 'compute'
+          shell: |
+            source /root/admin-openrc 
+            openstack service create --name nova --description "OpenStack Compute" compute
+          register: res_shell
+
+        - name: NOVA>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NOVA>> Openstack create API endpoint public http://controller:8774/v2.1
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region {{ openstack_project }} compute public http://{{ controller.name }}:8774/v2.1
+          register: res_shell
+
+        - name: NOVA>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NOVA>> Openstack create API endpoint internal http://controller:8774/v2.1
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region {{ openstack_project }} compute internal http://{{ controller.name }}:8774/v2.1
+          register: res_shell
+
+        - name: NOVA>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+
+        - name: NOVA>> Openstack create API endpoint admin http://controller:8774/v2.1
+          shell: |
+            source /root/admin-openrc 
+            openstack endpoint create --region {{ openstack_project }} compute admin http://{{ controller.name }}:8774/v2.1
+          register: res_shell
+
+        - name: NOVA>> Show result
+          debug:
+            msg: "{{ res_shell.stdout }}"
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Add packages for Nova
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - openstack-nova-api 
+          - openstack-nova-conductor
+          - openstack-nova-novncproxy 
+          - openstack-nova-scheduler
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Add packages for Compute Nova
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - openstack-nova-compute
+      when: ('compute' in openstack_roles)
+
+    - name: NOVA>> Create file /etc/nova/nova.conf 
+      copy:
+        src: "./configs/{{inventory_hostname}}_nova.conf"
+        dest: /etc/nova/nova.conf
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+
+    - name: NOVA>> nova manage api db_sync
+      command: 'su -s /bin/sh -c "nova-manage api_db sync" nova'
+      register: ret_val
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> nova manage cell_v2 map_cell0
+      command: 'su -s /bin/sh -c "nova-manage cell_v2 map_cell0" nova'
+      register: ret_val
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> nova manage create cell
+      command: 'su -s /bin/sh -c "nova-manage cell_v2 create_cell --name=cell1 --verbose" nova'
+      register: ret_val
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> nova manage db sync
+      command: 'su -s /bin/sh -c "nova-manage db sync" nova'
+      register: ret_val
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Verify nova list
+      shell: |
+        source /root/admin-openrc 
+        su -s /bin/sh -c "nova-manage cell_v2 list_cells" nova
+      register: res_shell
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Make sure a Nova services is running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - openstack-nova-api.service 
+        - openstack-nova-scheduler.service
+        - openstack-nova-conductor.service
+        - openstack-nova-novncproxy.service
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Make sure a Compute services is running
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - libvirtd.service 
+        - openstack-nova-compute.service
+      when: ('compute' in openstack_roles)
+
+    - name: NOVA>> Create file admin-openrc
+      template:
+        src: "admin_openrc.j2"
+        dest: /root/admin-openrc
+        owner: root
+        group: root
+        mode: '0644'
+      when: ('compute' in openstack_roles)
+
+    - name: NOVA>> Verify compute list
+      shell: |
+        source /root/admin-openrc 
+        openstack compute service list --service nova-compute
+      register: res_shell
+
+    - name: NOVA>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: NOVA>> Verify compute list
+      shell: |
+        source /root/admin-openrc 
+        openstack compute service list
+      register: res_shell
+
+    - name: NOVA>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: NOVA>> Verify catalog list
+      shell: |
+        source /root/admin-openrc 
+        openstack catalog list
+      register: res_shell
+
+    - name: NOVA>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+    - name: NOVA>> Verify catalog list
+      shell: |
+        source /root/admin-openrc 
+        nova-status upgrade check
+      retries: 10
+      delay: 60
+      register: res_shell
+      until: res_shell.rc == 0
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+      when: ('controller' in openstack_roles)
+
+    - name: NOVA>> Verify compute list
+      shell: |
+        source /root/admin-openrc 
+        openstack compute service list --service nova-compute
+      register: res_shell
+
+    - name: NOVA>> Show result
+      debug:
+        msg: "{{ res_shell.stdout }}"
+
+

@@ -1,0 +1,110 @@
+---
+- name: Prerequisite for install Openstack on Centos 8
+  hosts: all
+  gather_facts: false
+  user: root
+
+  tasks:
+
+    - name: PRE >> Get vmx/svm support 
+      command: egrep -c '(vmx|svm)' /proc/cpuinfo
+      register: supp_vmx
+    
+    - name: PRE >> Show vmx/svm core
+      debug:
+        msg: "Core: {{ supp_vmx.stdout }}"
+
+    - name: PRE >> upgrade all packages
+      dnf:
+        name: '*'
+        state: latest    
+
+    - name: PRE >> Add some packages
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - chrony
+          - wget
+    
+    - name: PRE >> populate service facts
+      service_facts:
+
+    # - debug:
+    #     msg: "{{ ansible_facts.services }}"
+
+    - name: PRE >> Make sure a some service is stoped
+      systemd:
+        state: stopped
+        name: "{{ item }}"
+        enabled: no
+      when: item in ansible_facts.services
+      with_items:
+        - "firewalld.service"
+        #- "NetworkManager.service"
+
+    # - name: PRE >> remove the NetworkManager 
+    #   dnf:
+    #     name: NetworkManager
+    #     state: absent    
+      
+    - name: PRE >> Make sure the some services is running
+      systemd:
+        state: started
+        enabled: yes
+        name: "{{ item }}"
+      with_items:
+#        - "network"
+        - "chronyd"
+
+    - name: PRE >> Disable SELinux 
+      become: yes
+      replace:
+        path: /etc/selinux/config
+        regexp: '^SELINUX=.*'
+        replace: 'SELINUX=disabled'
+
+    - name: PRE >> Change hostname on Linux
+      hostname:
+        name: "{{ inventory_hostname | lower }}"
+
+    - name: PRE >> Clear old string in /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        state: absent
+        regexp: "{{ item.ipv4 }}"
+      with_items: " {{ hosts_list }}"
+
+    - name: PRE >> Add strings to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        state: present
+        line: "{{ item.ipv4 }}  {{ item.name }}"
+      with_items: " {{ hosts_list }}"
+
+    - name: "PRE >> Add openstack packages {{ os_release }}"
+      dnf:
+        name: "{{ os_release }}"
+        state: present
+
+    - name: PRE >> upgrade all packages
+      dnf:
+        name: '*'
+        state: latest    
+    # - name: PRE >> Upgrade Centos8
+    #   command: dnf upgrade -y
+
+    - name: PRE >> Add openstacks tools packages
+      dnf:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - python3-openstackclient
+          - crudini
+
+    - name: PRE >> Reboot machine
+      reboot:  
+ 
+
