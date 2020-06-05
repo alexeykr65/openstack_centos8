@@ -1,10 +1,10 @@
 ---
 os_release: centos-release-openstack-train
-controller: { ipv4: 10.1.1.100, name: osc.lanhome.org }
+controller: { ipv4: 192.168.180.11, name: osc.lanhome.org }
 
 hosts_list:
-      - { ipv4: 10.1.1.100, name: 'osc osc.lanhome.org' }
-      - { ipv4: 10.1.1.101, name: 'osn1 osn1.lanhome.org' }
+      - { ipv4: 192.168.180.11, name: 'osc osc.lanhome.org' }
+      - { ipv4: 192.168.180.14, name: 'osn1 osn1.lanhome.org' }
 br_ovs:
   osc: 
     - {name: br-ex}
@@ -14,16 +14,16 @@ br_ovs:
 
 ifcfgs:
   osc:
-    - {name: eth1, type: OVSPort, bootproto: none, device_type: ovs, ovs_bridge: br-ex }
-    - {name: br-ex, type: OVSBridge, ipv4: 10.2.2.100/24, ovs_extra: "set bridge br-ex fail_mode=standalone", device_type: ovs, ovsbootproto: static }
-    - {name: eth0, type: Ethernet, ipv4: 10.1.1.100/24, gw: 10.1.1.1, defroute: yes}
+    - {name: eth5, type: OVSPort, bootproto: none, device_type: ovs, ovs_bridge: br-ex }
+    - {name: br-ex, type: OVSBridge, ipv4: 192.168.30.11/24, ovs_extra: "set bridge br-ex fail_mode=standalone", device_type: ovs, ovsbootproto: static }
+    - {name: eth0, type: Ethernet, ipv4: 192.168.180.11/24, gw: 192.168.180.1, defroute: yes}
     # - {name: eth2, bootproto: none }
 
     # - {name: eth2.1100, bootproto: none, ipv4: 10.123.1.20/24, vlan: yes }
   osn1:
     - {name: eth1, type: OVSPort, bootproto: none, device_type: ovs, ovs_bridge: br-ex }
-    - {name: br-ex, type: OVSBridge, ipv4: 10.2.2.101/24, ovs_extra: "set bridge br-ex fail_mode=standalone", device_type: ovs, ovsbootproto: static }
-    - {name: eth0, type: Ethernet, ipv4: 10.1.1.101/24, gw: 10.1.1.1, defroute: yes}  
+    - {name: br-ex, type: OVSBridge, ipv4: 192.168.30.14/24, ovs_extra: "set bridge br-ex fail_mode=standalone", device_type: ovs, ovsbootproto: static }
+    - {name: eth0, type: Ethernet, ipv4: 192.168.180.14/24, gw: 192.168.180.4, defroute: yes}  
     # - {name: eth2, bootproto: none }
     # - {name: eth2.1100, bootproto: none, ipv4: 10.123.1.26/24, vlan: yes }
 

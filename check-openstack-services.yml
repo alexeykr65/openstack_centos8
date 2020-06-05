@@ -1,0 +1,56 @@
+---
+- name: Configure MariaDB on Centos 8
+  hosts: controllers
+
+  tasks:
+    - name: Get service facts
+      service_facts:
+
+    # - name: Show msg
+    #   debug:
+    #     msg: "{{ ansible_facts.services['openvswitch.service'].status }}"
+
+    - name: check if target and openvswitch serices of Openstack is enabled
+      fail:
+        msg: "Service did not start {{ item }} "
+      when: ansible_facts.services[item].status != "enabled"
+      loop:
+        - openvswitch.service
+        - target.service        
+
+
+    - name: check if all serices of Openstack is running
+      fail:
+        msg: "Service did not start {{ item }} "
+      when: ansible_facts.services[item].state != "running"
+      loop:
+        - chronyd.service
+        - mariadb.service
+        - rabbitmq-server.service
+        - memcached.service
+        - httpd.service
+# Glance module        
+        - openstack-glance-api.service      
+# Nova modules
+        - openstack-nova-api.service        
+        - openstack-nova-compute.service    
+        - openstack-nova-conductor.service  
+        - openstack-nova-novncproxy.service 
+        - openstack-nova-scheduler.service  
+# Neutron modules        
+        - libvirtd.service
+        - neutron-openvswitch-agent.service 
+        - ovs-vswitchd.service
+        - ovsdb-server.service
+        - neutron-server.service 
+        - neutron-dhcp-agent.service 
+        - neutron-metadata-agent.service
+        - neutron-l3-agent.service
+# Cinder modules
+        - openstack-cinder-api.service      
+        - openstack-cinder-scheduler.service
+        - openstack-cinder-volume.service   
+# Heat modules
+        - openstack-heat-api-cfn.service    
+        - openstack-heat-api.service        
+        - openstack-heat-engine.service     

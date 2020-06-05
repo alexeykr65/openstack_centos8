@@ -1,0 +1,35 @@
+/usr/libexec/qemu-kvm 
+-name guest=instance-0000000c,debug-threads=on 
+-S 
+-object secret,id=masterKey0,format=raw,file=/var/lib/libvirt/qemu/domain-1-instance-0000000c/master-key.aes 
+-machine pc-i440fx-rhel7.6.0,accel=kvm,usb=off,dump-guest-core=off 
+-cpu host 
+-m 2048 
+-overcommit mem-lock=off 
+-smp 8,sockets=8,cores=1,threads=1 
+-uuid 99cd3fbb-2bfe-49f4-8725-31d4b0810ff7 
+-smbios type=1,manufacturer=RDO,product=OpenStack Compute,version=20.2.0-1.el8,
+        serial=99cd3fbb-2bfe-49f4-8725-31d4b0810ff7,uuid=99cd3fbb-2bfe-49f4-8725-31d4b0810ff7,family=Virtual Machine 
+-no-user-config 
+-nodefaults 
+-chardev socket,id=charmonitor,fd=37,server,nowait 
+-mon chardev=charmonitor,id=monitor,mode=control 
+-rtc base=utc,driftfix=slew 
+-global kvm-pit.lost_tick_policy=delay 
+-no-hpet 
+-no-shutdown 
+-boot strict=on 
+-device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 
+
+-drive file=..disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none 
+-device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x4,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1,write-cache=on 
+
+-netdev tap,fd=39,id=hostnet0,vhost=on,vhostfd=40 
+-device virtio-net-pci,host_mtu=8950,netdev=hostnet0,id=net0,mac=fa:16:3e:4a:e1:e5,bus=pci.0,addr=0x3 
+-add-fd set=3,fd=42 
+-chardev socket,id=charserial0,host=192.168.180.11,port=10000,server,nowait,logfile=/dev/fdset/3,logappend=on 
+-device isa-serial,chardev=charserial0,id=serial0 -device usb-tablet,id=input0,bus=usb.0,port=1 -vnc 0.0.0.0:0 
+-device cirrus-vga,id=video0,bus=pci.0,addr=0x2 
+-device virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x5 
+-sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny 
+-msg timestamp=on

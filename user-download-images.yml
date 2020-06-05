@@ -165,13 +165,13 @@
 
 
 
-    # - name: Download Debian 10
-    #   get_url:
-    #     url: http://cdimage.debian.org/cdimage/openstack/current/debian-10.4.1-20200515-openstack-amd64.qcow2
-    #     dest: /root/debian-10.4.1-20200515-openstack-amd64.qcow2
-    #     mode: '0644'
-    #   tags:
-    #     - debian10
+    - name: Download Debian 10
+      get_url:
+        url: http://cdimage.debian.org/cdimage/openstack/current/debian-10.4.1-20200515-openstack-amd64.qcow2
+        dest: /root/debian-10.4.1-20200515-openstack-amd64.qcow2
+        mode: '0644'
+      tags:
+        - debian10
 
     - name: Add image Debian 10 to Openstack
       shell: |

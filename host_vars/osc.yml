@@ -12,12 +12,11 @@ neutron_conf:
 
 ovs_conf:
   bridge_mappings: physnet1:br-ex
-  local_ip: 10.1.1.100
+  local_ip: 192.168.180.11
 
 cinder_conf:
-  my_ip: 10.1.1.100
+  my_ip: 192.168.180.11
 
 nova_conf:
-  my_ip: 10.1.1.100
-
+  my_ip: 192.168.180.11
 

@@ -11,7 +11,7 @@
           mysql_db:
             name: "{{ item }}"
             state: present
-            login_host: "{{ ansible_host }}"
+            login_unix_socket: /var/lib/mysql/mysql.sock
           with_items:
             - cinder
 
@@ -22,7 +22,7 @@
             priv: 'cinder.*:ALL,GRANT'
             state: present
             host: "{{ item }}"
-            login_host: "{{ controller.ipv4 }}"        
+            login_unix_socket: /var/lib/mysql/mysql.sock
           with_items:
             - 'localhost'
             - '%'
@@ -129,7 +129,7 @@
       when: ('controller' in openstack_roles)
               
     - name: CINDER>> Add packages for Cinder
-      yum:
+      dnf:
         name: "{{ packages }}"
         state: present
       vars:
@@ -138,7 +138,7 @@
       when: ('controller' in openstack_roles)
 
     - name: CINDER>> Add packages for Cinder Storage
-      yum:
+      dnf:
         name: "{{ packages }}"
         state: present
       vars:
@@ -147,7 +147,7 @@
           - device-mapper-persistent-data
           - openstack-cinder 
           - targetcli 
-          - python-keystone
+          - python3-keystone
       when: ('storage' in openstack_roles)
 
     - name: CINDER>> Pcreate /dev/sdb
@@ -155,7 +155,7 @@
       register: ret_val
       when: ('storage' in openstack_roles)
 
-    - name: CINDER>> Vgcreate /dev/cdb
+    - name: CINDER>> Vgcreate /dev/sdb
       command: vgcreate cinder-volumes /dev/sdb
       register: ret_val
       when: ('storage' in openstack_roles)
@@ -201,7 +201,7 @@
         state: started
         enabled: yes
       with_items:
-        - lvm2-lvmetad.service 
+        #- lvm2-lvmetad.service 
         - openstack-cinder-volume.service 
         - target.service
       when: ('storage' in openstack_roles)
